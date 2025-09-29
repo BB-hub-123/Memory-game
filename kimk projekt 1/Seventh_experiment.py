@@ -56,40 +56,37 @@ def generate_consonants(length=7):
     consonants = 'BCDFGHJKLMNPQRSTVWXYZ'
     return random.sample(consonants, length)
 
-def show_letters(screen, letters, trial_num, condition):
-    """Show 7 letters one at a time"""
-    is_suppression = (condition == "suppression")
+def show_letters(screen, letters, trial_num):
+    """Show 7 letters one at a time with suppression"""
     
-    # Show suppression instruction if needed
-    if is_suppression:
-        screen.fill(WHITE)
-        title = font_medium.render("SAY 'TA-TA-TA' OUT LOUD", True, RED)
-        screen.blit(title, (500 - title.get_width()//2, 200))
-        
-        instruction = font_small.render("Keep saying 'ta-ta-ta' during the letters", True, BLACK)
-        screen.blit(instruction, (500 - instruction.get_width()//2, 250))
-        
-        ready = font_small.render("Start saying 'ta-ta-ta' and press any key", True, BLUE)
-        screen.blit(ready, (500 - ready.get_width()//2, 320))
-        
-        pygame.display.flip()
-        
-        waiting = True
-        while waiting:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-                elif event.type == pygame.KEYDOWN:
-                    waiting = False
+    # Show suppression instruction
+    screen.fill(WHITE)
+    title = font_medium.render("SAY 'TA-TA-TA' OUT LOUD", True, RED)
+    screen.blit(title, (500 - title.get_width()//2, 200))
+    
+    instruction = font_small.render("Keep saying 'ta-ta-ta' during the letters", True, BLACK)
+    screen.blit(instruction, (500 - instruction.get_width()//2, 250))
+    
+    ready = font_small.render("Start saying 'ta-ta-ta' and press any key", True, BLUE)
+    screen.blit(ready, (500 - ready.get_width()//2, 320))
+    
+    pygame.display.flip()
+    
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            elif event.type == pygame.KEYDOWN:
+                waiting = False
     
     # Show letters
     for i, letter in enumerate(letters):
         screen.fill(WHITE)
         
-        if is_suppression:
-            reminder = font_small.render("KEEP SAYING 'TA-TA-TA'", True, RED)
-            screen.blit(reminder, (20, 20))
+        reminder = font_small.render("KEEP SAYING 'TA-TA-TA'", True, RED)
+        screen.blit(reminder, (20, 20))
         
         trial_text = font_small.render(f"Trial {trial_num}/20 - Letter {i+1}/7", True, BLUE)
         screen.blit(trial_text, (20, 50))
@@ -107,14 +104,13 @@ def show_letters(screen, letters, trial_num, condition):
                 exit()
     
     # Stop suppression
-    if is_suppression:
-        screen.fill(WHITE)
-        stop = font_medium.render("STOP saying 'ta-ta-ta'", True, GREEN)
-        screen.blit(stop, (500 - stop.get_width()//2, 280))
-        pygame.display.flip()
-        time.sleep(1.5)
+    screen.fill(WHITE)
+    stop = font_medium.render("STOP saying 'ta-ta-ta'", True, GREEN)
+    screen.blit(stop, (500 - stop.get_width()//2, 280))
+    pygame.display.flip()
+    time.sleep(1.5)
 
-def get_recall(screen, trial_num, condition):
+def get_recall(screen, trial_num):
     """Get 7 letters recall"""
     recalled = []
     current = ""
@@ -143,12 +139,11 @@ def get_recall(screen, trial_num, condition):
         
         screen.fill(WHITE)
         
-        title = font_medium.render(f"Trial {trial_num}/20 - Recall ({condition})", True, BLACK)
+        title = font_medium.render(f"Trial {trial_num}/20 - Recall", True, BLACK)
         screen.blit(title, (500 - title.get_width()//2, 80))
         
-        if condition == "suppression":
-            note = font_small.render("(Do NOT say 'ta-ta-ta' during recall)", True, RED)
-            screen.blit(note, (500 - note.get_width()//2, 130))
+        note = font_small.render("(Do NOT say 'ta-ta-ta' during recall)", True, RED)
+        screen.blit(note, (500 - note.get_width()//2, 130))
         
         instruction = font_small.render("Type letters and press ENTER/SPACE", True, GRAY)
         screen.blit(instruction, (500 - instruction.get_width()//2, 160))
@@ -186,18 +181,12 @@ def save_data(participant_name, trials):
     """Save data to JSON"""
     filename = f"exp7_{participant_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
-    control = [t for t in trials if t['condition'] == 'control']
-    suppression = [t for t in trials if t['condition'] == 'suppression']
-    
     data = {
         'participant': participant_name,
         'timestamp': datetime.now().isoformat(),
         'trials': trials,
         'summary': {
-            'control_accuracy': sum(t['accuracy'] for t in control) / len(control),
-            'suppression_accuracy': sum(t['accuracy'] for t in suppression) / len(suppression),
-            'suppression_effect': (sum(t['accuracy'] for t in control) / len(control)) - 
-                                 (sum(t['accuracy'] for t in suppression) / len(suppression)),
+            'average_accuracy': sum(t['accuracy'] for t in trials) / len(trials),
             'total_trials': len(trials)
         }
     }
@@ -220,21 +209,18 @@ def main():
     instructions = [
         "Experiment 7: Articulatory Suppression",
         "",
-        "20 trials total (10 control, 10 suppression)",
+        "20 trials with 'ta-ta-ta' suppression",
         "",
-        "CONTROL: View letters normally",
-        "SUPPRESSION: Say 'ta-ta-ta' OUT LOUD during letters",
+        "Each trial:",
+        "Say 'ta-ta-ta' OUT LOUD during letters",
+        "Stop after letters, then recall in order",
         "",
-        "Each trial: 7 letters, one at a time (1 sec each)",
-        "Then recall them in order",
-        "",
-        "Theory: Saying 'ta-ta-ta' blocks inner speech,",
-        "which should reduce memory performance",
+        "7 letters per trial (1 sec each)",
         "",
         "Press any key to start"
     ]
     
-    y = 100
+    y = 120
     for line in instructions:
         color = BLUE if "Press" in line else BLACK
         text = font_small.render(line, True, color)
@@ -252,24 +238,17 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 waiting = False
     
-    # Create trial list (10 control + 10 suppression)
-    trial_list = ['control'] * 10 + ['suppression'] * 10
-    random.shuffle(trial_list)
-    
     results = []
     
-    # Run 20 trials
-    for i, condition in enumerate(trial_list):
-        trial_num = i + 1
-        
+    # Run 20 trials (all with suppression)
+    for trial_num in range(1, 21):
         # Ready screen
         screen.fill(WHITE)
-        ready_title = font_medium.render(f"Trial {trial_num}/20: {condition.upper()}", True, BLACK)
+        ready_title = font_medium.render(f"Trial {trial_num}/20", True, BLACK)
         screen.blit(ready_title, (500 - ready_title.get_width()//2, 200))
         
-        if condition == "suppression":
-            reminder = font_small.render("Remember: Say 'ta-ta-ta' OUT LOUD during letters", True, RED)
-            screen.blit(reminder, (500 - reminder.get_width()//2, 260))
+        reminder = font_small.render("Remember: Say 'ta-ta-ta' OUT LOUD during letters", True, RED)
+        screen.blit(reminder, (500 - reminder.get_width()//2, 260))
         
         instruction = font_small.render("Press any key when ready", True, BLUE)
         screen.blit(instruction, (500 - instruction.get_width()//2, 320))
@@ -286,10 +265,10 @@ def main():
         
         # Generate and show letters
         letters = generate_consonants(7)
-        show_letters(screen, letters, trial_num, condition)
+        show_letters(screen, letters, trial_num)
         
         # Get recall
-        recalled = get_recall(screen, trial_num, condition)
+        recalled = get_recall(screen, trial_num)
         
         # Analyze
         analysis = analyze_trial(recalled, letters)
@@ -297,7 +276,6 @@ def main():
         # Store results
         results.append({
             'trial': trial_num,
-            'condition': condition,
             'original': letters,
             'recalled': recalled,
             'correct': analysis['correct'],
@@ -312,41 +290,14 @@ def main():
         time.sleep(1.5)
     
     # Final summary
-    control = [r for r in results if r['condition'] == 'control']
-    suppression = [r for r in results if r['condition'] == 'suppression']
-    
-    control_acc = sum(t['accuracy'] for t in control) / len(control) * 100
-    suppress_acc = sum(t['accuracy'] for t in suppression) / len(suppression) * 100
-    effect = control_acc - suppress_acc
+    avg_acc = sum(t['accuracy'] for t in results) / len(results) * 100
     
     screen.fill(WHITE)
     title = font_medium.render("Experiment Complete!", True, BLACK)
-    screen.blit(title, (500 - title.get_width()//2, 150))
+    screen.blit(title, (500 - title.get_width()//2, 200))
     
-    summary = [
-        f"Control: {control_acc:.1f}%",
-        f"Suppression: {suppress_acc:.1f}%",
-        f"Effect: {effect:+.1f}%"
-    ]
-    
-    y = 250
-    for line in summary:
-        text = font_small.render(line, True, BLACK)
-        screen.blit(text, (500 - text.get_width()//2, y))
-        y += 40
-    
-    if effect > 10:
-        interpretation = "Strong suppression effect!"
-        color = RED
-    elif effect > 5:
-        interpretation = "Moderate suppression effect"
-        color = BLUE
-    else:
-        interpretation = "No clear effect"
-        color = GRAY
-    
-    interp_text = font_small.render(interpretation, True, color)
-    screen.blit(interp_text, (500 - interp_text.get_width()//2, y + 30))
+    summary = font_small.render(f"Average accuracy: {avg_acc:.1f}%", True, BLACK)
+    screen.blit(summary, (500 - summary.get_width()//2, 280))
     
     pygame.display.flip()
     time.sleep(3)

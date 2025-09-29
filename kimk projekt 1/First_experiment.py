@@ -2,7 +2,7 @@ import pygame
 import time
 import json
 from datetime import datetime
-import matplotlib.pyplot as plt
+import random
 
 # Initialize pygame
 pygame.init()
@@ -12,9 +12,10 @@ font_large = pygame.font.Font(None, 200)
 font_medium = pygame.font.Font(None, 48)
 font_small = pygame.font.Font(None, 32)
 
-# Fixed list of 20 letters
-LETTERS = ['K', 'Q', 'M', 'R', 'B', 'N', 'F', 'X', 'P', 'H', 
-           'V', 'I', 'C', 'S', 'A', 'W', 'E', 'J', 'T', 'L']
+def generate_consonant_sequence(length=15):
+    """Generate unique consonants (no vowels, no repeats)"""
+    consonants = 'BCDFGHJKLMNPQRSTVWXYZ'
+    return random.sample(consonants, length)
 
 # Colors
 WHITE = (255, 255, 255)
@@ -52,20 +53,18 @@ def get_text_input(screen, prompt):
         text_rect = text_surface.get_rect(center=(400, 320))
         screen.blit(text_surface, text_rect)
         
-        instruction = font_small.render("Press ENTER to continue", True, BLUE)
-        instruction_rect = instruction.get_rect(center=(400, 400))
-        screen.blit(instruction, instruction_rect)
-        
         pygame.display.flip()
     
     return text.strip()
 
-def show_sequence(screen):
-    """Show the 20-letter sequence"""
-    print("Starting sequence...")
-    
-    for i, letter in enumerate(LETTERS):
+def show_sequence(screen, letters, trial_num):
+    """Show the 15-letter sequence"""
+    for i, letter in enumerate(letters):
         screen.fill(WHITE)
+        
+        # Show trial and position info
+        info_text = font_small.render(f"Trial {trial_num}/20 - Letter {i+1}/15", True, BLUE)
+        screen.blit(info_text, (20, 20))
         
         letter_surface = font_large.render(letter, True, BLACK)
         letter_rect = letter_surface.get_rect(center=(400, 300))
@@ -79,11 +78,11 @@ def show_sequence(screen):
                 pygame.quit()
                 exit()
 
-def get_free_recall_input(screen, participant_name):
+def get_free_recall_input(screen, trial_num):
     """Get free recall input from participant"""
     recalled_letters = []
     current_input = ""
-    time_limit = 120  # 2 minutes to recall
+    time_limit = 90
     start_time = time.time()
     
     input_active = True
@@ -122,85 +121,64 @@ def get_free_recall_input(screen, participant_name):
         
         screen.fill(WHITE)
         
-        title = font_medium.render(f"Free Recall - {participant_name}", True, BLACK)
-        title_rect = title.get_rect(center=(400, 80))
+        title = font_medium.render(f"Trial {trial_num}/20 - Free Recall", True, BLACK)
+        title_rect = title.get_rect(center=(400, 60))
         screen.blit(title, title_rect)
         
         instruction1 = font_small.render("Type letters you remember (any order)", True, BLACK)
-        instruction1_rect = instruction1.get_rect(center=(400, 130))
-        screen.blit(instruction1, instruction1_rect)
+        screen.blit(instruction1, (400 - instruction1.get_width()//2, 110))
         
-        instruction2 = font_small.render("Press ENTER or SPACE after each letter", True, GRAY)
-        instruction2_rect = instruction2.get_rect(center=(400, 160))
-        screen.blit(instruction2, instruction2_rect)
-        
-        instruction3 = font_small.render("Press ESC when finished", True, BLUE)
-        instruction3_rect = instruction3.get_rect(center=(400, 190))
-        screen.blit(instruction3, instruction3_rect)
+        instruction2 = font_small.render("ENTER/SPACE after each | ESC when done", True, GRAY)
+        screen.blit(instruction2, (400 - instruction2.get_width()//2, 140))
         
         minutes = int(remaining // 60)
         seconds = int(remaining % 60)
-        timer_text = f"Time remaining: {minutes:02d}:{seconds:02d}"
+        timer_text = f"{minutes:02d}:{seconds:02d}"
         timer_surface = font_medium.render(timer_text, True, RED)
-        timer_rect = timer_surface.get_rect(center=(400, 240))
-        screen.blit(timer_surface, timer_rect)
-        
-        input_label = font_small.render("Current letter:", True, BLACK)
-        screen.blit(input_label, (200, 300))
+        screen.blit(timer_surface, (400 - timer_surface.get_width()//2, 190))
         
         input_surface = font_large.render(current_input + "|", True, BLACK)
-        input_rect = input_surface.get_rect(center=(400, 340))
-        screen.blit(input_surface, input_rect)
+        screen.blit(input_surface, (400 - input_surface.get_width()//2, 260))
         
-        recall_label = font_small.render(f"Letters recalled ({len(recalled_letters)}):", True, BLACK)
-        screen.blit(recall_label, (50, 400))
+        recall_label = font_small.render(f"Recalled ({len(recalled_letters)}):", True, BLACK)
+        screen.blit(recall_label, (50, 350))
         
-        letters_per_row = 15
-        x_start = 50
-        y_start = 430
-        
+        x, y = 50, 380
         for i, letter in enumerate(recalled_letters):
-            row = i // letters_per_row
-            col = i % letters_per_row
-            x = x_start + col * 35
-            y = y_start + row * 30
-            
+            if i > 0 and i % 15 == 0:
+                y += 30
+                x = 50
             letter_surface = font_medium.render(letter, True, BLACK)
             screen.blit(letter_surface, (x, y))
+            x += 35
         
         bar_width = 700
-        bar_height = 15
         bar_x = 50
         bar_y = 550
-        
-        pygame.draw.rect(screen, GRAY, (bar_x, bar_y, bar_width, bar_height))
+        pygame.draw.rect(screen, GRAY, (bar_x, bar_y, bar_width, 15))
         progress = remaining / time_limit
-        pygame.draw.rect(screen, BLUE, (bar_x, bar_y, int(bar_width * progress), bar_height))
+        pygame.draw.rect(screen, BLUE, (bar_x, bar_y, int(bar_width * progress), 15))
         
         pygame.display.flip()
     
     return recalled_letters
 
 def analyze_primacy_recency(recalled_letters, original_sequence):
-    """Analyze recall by serial position to identify primacy/recency effects"""
+    """Analyze recall by serial position"""
     
-    # Create position mapping for each recalled letter
+    # Position mapping
     position_recalls = []
-    
     for recalled_letter in recalled_letters:
-        # Find all positions where this letter appears in original sequence
         positions = [i for i, orig_letter in enumerate(original_sequence) if orig_letter == recalled_letter]
-        
-        # For each position found, record it (handling duplicates)
         for pos in positions:
             if pos not in [p['position'] for p in position_recalls]:
                 position_recalls.append({
                     'letter': recalled_letter,
                     'position': pos,
-                    'serial_position': pos + 1  # 1-indexed
+                    'serial_position': pos + 1
                 })
     
-    # Calculate recall probability by position
+    # Position data
     position_data = []
     for i in range(len(original_sequence)):
         was_recalled = any(pr['position'] == i for pr in position_recalls)
@@ -210,10 +188,10 @@ def analyze_primacy_recency(recalled_letters, original_sequence):
             'recalled': was_recalled
         })
     
-    # Calculate primacy and recency scores
-    primacy_positions = position_data[:5]  # First 5 positions
-    middle_positions = position_data[5:15]  # Middle 10 positions
-    recency_positions = position_data[15:]  # Last 5 positions
+    # Primacy, middle, recency (adjusted for 15 items)
+    primacy_positions = position_data[:5]
+    middle_positions = position_data[5:10]
+    recency_positions = position_data[10:]
     
     primacy_score = sum(1 for p in primacy_positions if p['recalled']) / len(primacy_positions)
     middle_score = sum(1 for p in middle_positions if p['recalled']) / len(middle_positions)
@@ -224,208 +202,151 @@ def analyze_primacy_recency(recalled_letters, original_sequence):
         'primacy_score': primacy_score,
         'middle_score': middle_score,
         'recency_score': recency_score,
-        'total_recalled': len(position_recalls),
-        'recall_by_position': [p['recalled'] for p in position_data]
+        'total_recalled': len(position_recalls)
     }
     
     return results
 
-def show_results(screen, participant_name, analysis):
-    """Show detailed results with primacy/recency analysis"""
-    result_active = True
+def save_data(participant_name, trials):
+    """Save data to JSON"""
+    filename = f"exp1_{participant_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
-    while result_active:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
-            elif event.type == pygame.KEYDOWN:
-                result_active = False
-        
-        screen.fill(WHITE)
-        
-        title = font_medium.render(f"Primacy/Recency Results - {participant_name}", True, BLACK)
-        title_rect = title.get_rect(center=(400, 50))
-        screen.blit(title, title_rect)
-        
-        # Main scores
-        y_pos = 100
-        scores = [
-            f"Total letters recalled: {analysis['total_recalled']}/20",
-            f"Primacy effect (positions 1-5): {analysis['primacy_score']*100:.1f}%",
-            f"Middle positions (6-15): {analysis['middle_score']*100:.1f}%",
-            f"Recency effect (positions 16-20): {analysis['recency_score']*100:.1f}%"
-        ]
-        
-        for score in scores:
-            text = font_small.render(score, True, BLACK)
-            screen.blit(text, (50, y_pos))
-            y_pos += 30
-        
-        # Serial position curve visualization (text-based)
-        y_pos += 20
-        curve_label = font_small.render("Serial Position Curve (✓ = recalled, ✗ = not recalled):", True, BLACK)
-        screen.blit(curve_label, (50, y_pos))
-        
-        y_pos += 30
-        for i, data in enumerate(analysis['position_data']):
-            row = i // 10
-            col = i % 10
-            x = 50 + col * 70
-            y = y_pos + row * 30
-            
-            symbol = "✓" if data['recalled'] else "✗"
-            color = GREEN if data['recalled'] else RED
-            
-            pos_text = f"{data['position']}:{symbol}"
-            pos_surface = font_small.render(pos_text, True, color)
-            screen.blit(pos_surface, (x, y))
-        
-        # Effect interpretation
-        y_pos += 80
-        interpretation = font_small.render("Interpretation:", True, BLACK)
-        screen.blit(interpretation, (50, y_pos))
-        
-        y_pos += 25
-        if analysis['primacy_score'] > analysis['middle_score']:
-            primacy_text = "✓ Primacy effect detected"
-            primacy_color = GREEN
-        else:
-            primacy_text = "✗ No clear primacy effect"
-            primacy_color = RED
-        
-        primacy_surface = font_small.render(primacy_text, True, primacy_color)
-        screen.blit(primacy_surface, (50, y_pos))
-        
-        y_pos += 25
-        if analysis['recency_score'] > analysis['middle_score']:
-            recency_text = "✓ Recency effect detected"
-            recency_color = GREEN
-        else:
-            recency_text = "✗ No clear recency effect"
-            recency_color = RED
-        
-        recency_surface = font_small.render(recency_text, True, recency_color)
-        screen.blit(recency_surface, (50, y_pos))
-        
-        instruction = font_small.render("Press any key to continue", True, BLUE)
-        instruction_rect = instruction.get_rect(center=(400, 570))
-        screen.blit(instruction, instruction_rect)
-        
-        pygame.display.flip()
-
-def save_data(all_results):
-    """Save all results to JSON file"""
-    filename = f"primacy_recency_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    data = {
+        'participant': participant_name,
+        'timestamp': datetime.now().isoformat(),
+        'trials': trials,
+        'summary': {
+            'average_primacy': sum(t['primacy_score'] for t in trials) / len(trials),
+            'average_middle': sum(t['middle_score'] for t in trials) / len(trials),
+            'average_recency': sum(t['recency_score'] for t in trials) / len(trials),
+            'total_trials': len(trials)
+        }
+    }
+    
     with open(filename, 'w') as f:
-        json.dump(all_results, f, indent=2)
+        json.dump(data, f, indent=2)
+    
     print(f"Data saved to {filename}")
 
 def main():
     """Main experiment loop"""
-    all_results = []
+    participant_name = get_text_input(screen, "Enter participant name:")
     
-    while True:
-        participant_name = get_text_input(screen, "Enter participant name (or 'quit' to exit):")
+    if not participant_name:
+        pygame.quit()
+        return
+    
+    # Instructions
+    screen.fill(WHITE)
+    instructions = [
+        "Experiment 1: Primacy and Recency Effect",
+        "",
+        "20 trials - Control condition",
+        "",
+        "Each trial: 15 letters (1 sec each)",
+        "Then recall as many as you can (any order)",
+        "",
+        "Tests memory for early (primacy) vs late (recency) items",
+        "",
+        "Press any key to start"
+    ]
+    
+    y = 140
+    for line in instructions:
+        color = BLUE if "Press" in line else BLACK
+        text = font_small.render(line, True, color)
+        screen.blit(text, (400 - text.get_width()//2, y))
+        y += 35
+    
+    pygame.display.flip()
+    
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            elif event.type == pygame.KEYDOWN:
+                waiting = False
+    
+    results = []
+    
+    # Run 20 trials
+    for trial_num in range(1, 21):
+        # Generate NEW sequence for each trial
+        letters = generate_consonant_sequence(15)
         
-        if participant_name.lower() == 'quit':
-            break
-        
-        if not participant_name:
-            continue
-        
-        # Show instructions
+        # Ready screen
         screen.fill(WHITE)
-        title = font_medium.render("Experiment 1: Primacy and Recency Effect", True, BLACK)
-        title_rect = title.get_rect(center=(400, 100))
-        screen.blit(title, title_rect)
+        ready_title = font_medium.render(f"Trial {trial_num}/20", True, BLACK)
+        screen.blit(ready_title, (400 - ready_title.get_width()//2, 240))
         
-        instructions = [
-            "You will see 20 letters, one at a time (1 second each)",
-            "After the sequence, recall as many letters as possible",
-            "Order doesn't matter - just recall what you remember",
-            "We'll analyze recall by original position in the list",
-            "This tests primacy (first items) and recency (last items) effects",
-            "",
-            "Press any key to start"
-        ]
-        
-        y_pos = 180
-        for instruction in instructions:
-            color = BLUE if instruction.startswith("Press") else BLACK
-            if instruction == "":
-                y_pos += 10
-                continue
-            text = font_small.render(instruction, True, color)
-            screen.blit(text, (50, y_pos))
-            y_pos += 25
-        
+        instruction = font_small.render("Press any key when ready", True, BLUE)
+        screen.blit(instruction, (400 - instruction.get_width()//2, 300))
         pygame.display.flip()
         
-        # Wait for key press
         waiting = True
         while waiting:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
-                    exit()
+                    return
                 elif event.type == pygame.KEYDOWN:
                     waiting = False
         
-        # Show countdown
-        for count in [3, 2, 1]:
-            screen.fill(WHITE)
-            countdown = font_large.render(str(count), True, BLACK)
-            countdown_rect = countdown.get_rect(center=(400, 300))
-            screen.blit(countdown, countdown_rect)
-            pygame.display.flip()
-            time.sleep(1)
-        
-        # Show "GO!"
-        screen.fill(WHITE)
-        go_text = font_large.render("GO!", True, BLACK)
-        go_rect = go_text.get_rect(center=(400, 300))
-        screen.blit(go_text, go_rect)
-        pygame.display.flip()
-        time.sleep(1)
-        
         # Show sequence
-        show_sequence(screen)
+        show_sequence(screen, letters, trial_num)
         
-        # Brief pause
+        # Get recall
+        recalled = get_free_recall_input(screen, trial_num)
+        
+        # Analyze
+        analysis = analyze_primacy_recency(recalled, letters)
+        
+        # Store
+        results.append({
+            'trial': trial_num,
+            'original': letters,
+            'recalled': recalled,
+            'total_recalled': analysis['total_recalled'],
+            'primacy_score': analysis['primacy_score'],
+            'middle_score': analysis['middle_score'],
+            'recency_score': analysis['recency_score']
+        })
+        
+        # Brief feedback
         screen.fill(WHITE)
-        pause_text = font_medium.render("Now recall all the letters you remember!", True, BLACK)
-        pause_rect = pause_text.get_rect(center=(400, 300))
-        screen.blit(pause_text, pause_rect)
+        score = font_medium.render(f"Recalled: {analysis['total_recalled']}/15", True, BLACK)
+        screen.blit(score, (400 - score.get_width()//2, 280))
         pygame.display.flip()
-        time.sleep(2)
-        
-        # Get free recall
-        recalled_letters = get_free_recall_input(screen, participant_name)
-        
-        # Analyze for primacy/recency effects
-        analysis = analyze_primacy_recency(recalled_letters, LETTERS)
-        
-        # Show results
-        show_results(screen, participant_name, analysis)
-        
-        # Save participant data
-        participant_data = {
-            'name': participant_name,
-            'experiment': 'primacy_recency_effect',
-            'original_sequence': LETTERS,
-            'recalled_sequence': recalled_letters,
-            'analysis': analysis,
-            'timestamp': datetime.now().isoformat()
-        }
-        all_results.append(participant_data)
-        
-        print(f"Completed primacy/recency test for {participant_name}")
-        print(f"Primacy: {analysis['primacy_score']*100:.1f}%, Middle: {analysis['middle_score']*100:.1f}%, Recency: {analysis['recency_score']*100:.1f}%")
+        time.sleep(1.5)
     
-    # Save all data before quitting
-    if all_results:
-        save_data(all_results)
+    # Final summary
+    avg_primacy = sum(t['primacy_score'] for t in results) / len(results) * 100
+    avg_middle = sum(t['middle_score'] for t in results) / len(results) * 100
+    avg_recency = sum(t['recency_score'] for t in results) / len(results) * 100
+    
+    screen.fill(WHITE)
+    title = font_medium.render("Experiment Complete!", True, BLACK)
+    screen.blit(title, (400 - title.get_width()//2, 150))
+    
+    summary = [
+        f"Primacy (1-5): {avg_primacy:.1f}%",
+        f"Middle (6-10): {avg_middle:.1f}%",
+        f"Recency (11-15): {avg_recency:.1f}%"
+    ]
+    
+    y = 240
+    for line in summary:
+        text = font_small.render(line, True, BLACK)
+        screen.blit(text, (400 - text.get_width()//2, y))
+        y += 35
+    
+    pygame.display.flip()
+    time.sleep(3)
+    
+    # Save
+    save_data(participant_name, results)
     
     pygame.quit()
 

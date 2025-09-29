@@ -7,13 +7,13 @@ import random
 # Initialize pygame
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
-pygame.display.set_caption("Experiment 3: Working Memory Task After List")
+pygame.display.set_caption("Experiment 3: Working Memory Task")
 font_large = pygame.font.Font(None, 200)
 font_medium = pygame.font.Font(None, 48)
 font_small = pygame.font.Font(None, 32)
 
 def generate_consonant_sequence(length=15):
-    """Generate a random sequence of unique consonants (no vowels, no repeats)"""
+    """Generate unique consonants (no vowels, no repeats)"""
     consonants = 'BCDFGHJKLMNPQRSTVWXYZ'
     return random.sample(consonants, length)
 
@@ -56,12 +56,12 @@ def get_text_input(screen, prompt):
     
     return text.strip()
 
-def show_sequence(screen, letters, condition, trial_num):
+def show_sequence(screen, letters, trial_num):
     """Show the letter sequence"""
     for i, letter in enumerate(letters):
         screen.fill(WHITE)
         
-        info_text = font_small.render(f"Trial {trial_num}/20 - {condition.upper()} - Letter {i+1}/15", True, BLUE)
+        info_text = font_small.render(f"Trial {trial_num}/20 - Letter {i+1}/15", True, BLUE)
         screen.blit(info_text, (20, 20))
         
         letter_surface = font_large.render(letter, True, BLACK)
@@ -173,7 +173,7 @@ def counting_task(screen, duration=20):
         'correct': correct_count
     }
 
-def get_free_recall(screen, condition, trial_num):
+def get_free_recall(screen, trial_num):
     """Get free recall input"""
     recalled = []
     current = ""
@@ -204,7 +204,7 @@ def get_free_recall(screen, condition, trial_num):
         
         screen.fill(WHITE)
         
-        title = font_medium.render(f"Trial {trial_num} Recall - {condition.upper()}", True, BLACK)
+        title = font_medium.render(f"Trial {trial_num} - Recall Letters", True, BLACK)
         screen.blit(title, (400 - title.get_width()//2, 60))
         
         instruction = font_small.render("Type letters (any order) | ENTER/SPACE | ESC when done", True, GRAY)
@@ -244,47 +244,21 @@ def get_free_recall(screen, condition, trial_num):
 def analyze_recall(recalled, original):
     """Analyze recall performance"""
     unique_correct = len(set(recalled) & set(original))
-    
-    # Position analysis
-    position_data = []
-    for i, letter in enumerate(original):
-        recalled_it = letter in recalled
-        position_data.append({
-            'position': i + 1,
-            'letter': letter,
-            'recalled': recalled_it
-        })
-    
-    # Primacy, middle, recency (adjusted for 15 items)
-    primacy = position_data[:5]
-    middle = position_data[5:10]
-    recency = position_data[10:]
-    
     return {
-        'total_recalled': len(recalled),
         'unique_correct': unique_correct,
-        'recall_rate': unique_correct / len(original),
-        'primacy': sum(1 for p in primacy if p['recalled']) / len(primacy),
-        'middle': sum(1 for p in middle if p['recalled']) / len(middle),
-        'recency': sum(1 for p in recency if p['recalled']) / len(recency)
+        'recall_rate': unique_correct / len(original)
     }
 
 def save_data(participant_name, trials):
     """Save data to JSON"""
     filename = f"exp3_{participant_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
-    control = [t for t in trials if t['condition'] == 'control']
-    distraction = [t for t in trials if t['condition'] == 'distraction']
-    
     data = {
         'participant': participant_name,
         'timestamp': datetime.now().isoformat(),
         'trials': trials,
         'summary': {
-            'control_recall': sum(t['recall_rate'] for t in control) / len(control),
-            'distraction_recall': sum(t['recall_rate'] for t in distraction) / len(distraction),
-            'working_memory_effect': (sum(t['recall_rate'] for t in control) / len(control)) - 
-                                    (sum(t['recall_rate'] for t in distraction) / len(distraction)),
+            'average_recall': sum(t['recall_rate'] for t in trials) / len(trials),
             'total_trials': len(trials)
         }
     }
@@ -305,19 +279,19 @@ def main():
     # Instructions
     screen.fill(WHITE)
     instructions = [
-        "Experiment 3: Working Memory Task",
+        "Experiment 3: Working Memory Distraction",
         "",
-        "20 trials (10 control, 10 distraction)",
+        "20 trials with counting distraction task",
         "",
-        "CONTROL: See 15 letters → recall immediately",
-        "DISTRACTION: See 15 letters → counting task → recall",
-        "",
-        "Counting task: Count backwards from 100 by 3s",
+        "Each trial:",
+        "1. See 15 letters (1 sec each)",
+        "2. Do counting task (count backwards from 100 by 3s)",
+        "3. Recall the letters (any order)",
         "",
         "Press any key to start"
     ]
     
-    y = 140
+    y = 130
     for line in instructions:
         color = BLUE if "Press" in line else BLACK
         text = font_small.render(line, True, color)
@@ -335,23 +309,17 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 waiting = False
     
-    # Create trial list
-    trial_list = ['control'] * 10 + ['distraction'] * 10
-    random.shuffle(trial_list)
-    
     results = []
     
-    # Run 20 trials
-    for i, condition in enumerate(trial_list):
-        trial_num = i + 1
-        
+    # Run 20 trials (all with distraction)
+    for trial_num in range(1, 21):
         # Ready screen
         screen.fill(WHITE)
-        ready_title = font_medium.render(f"Trial {trial_num}/20: {condition.upper()}", True, BLACK)
-        screen.blit(ready_title, (400 - ready_title.get_width()//2, 220))
+        ready_title = font_medium.render(f"Trial {trial_num}/20", True, BLACK)
+        screen.blit(ready_title, (400 - ready_title.get_width()//2, 240))
         
         instruction = font_small.render("Press any key when ready", True, BLUE)
-        screen.blit(instruction, (400 - instruction.get_width()//2, 280))
+        screen.blit(instruction, (400 - instruction.get_width()//2, 300))
         pygame.display.flip()
         
         waiting = True
@@ -365,15 +333,13 @@ def main():
         
         # Generate and show sequence
         letters = generate_consonant_sequence(15)
-        show_sequence(screen, letters, condition, trial_num)
+        show_sequence(screen, letters, trial_num)
         
-        # Distraction or immediate recall
-        counting_perf = None
-        if condition == 'distraction':
-            counting_perf = counting_task(screen, 20)
+        # Distraction task
+        counting_perf = counting_task(screen, 20)
         
         # Recall
-        recalled = get_free_recall(screen, condition, trial_num)
+        recalled = get_free_recall(screen, trial_num)
         
         # Analyze
         analysis = analyze_recall(recalled, letters)
@@ -381,13 +347,9 @@ def main():
         # Store
         results.append({
             'trial': trial_num,
-            'condition': condition,
             'original': letters,
             'recalled': recalled,
             'recall_rate': analysis['recall_rate'],
-            'primacy': analysis['primacy'],
-            'middle': analysis['middle'],
-            'recency': analysis['recency'],
             'counting': counting_perf
         })
         
@@ -399,41 +361,14 @@ def main():
         time.sleep(1.5)
     
     # Final summary
-    control = [r for r in results if r['condition'] == 'control']
-    distraction = [r for r in results if r['condition'] == 'distraction']
-    
-    control_rate = sum(t['recall_rate'] for t in control) / len(control) * 100
-    distraction_rate = sum(t['recall_rate'] for t in distraction) / len(distraction) * 100
-    effect = control_rate - distraction_rate
+    avg_recall = sum(t['recall_rate'] for t in results) / len(results) * 100
     
     screen.fill(WHITE)
     title = font_medium.render("Experiment Complete!", True, BLACK)
-    screen.blit(title, (400 - title.get_width()//2, 150))
+    screen.blit(title, (400 - title.get_width()//2, 200))
     
-    summary = [
-        f"Control: {control_rate:.1f}%",
-        f"Distraction: {distraction_rate:.1f}%",
-        f"Effect: {effect:+.1f}%"
-    ]
-    
-    y = 250
-    for line in summary:
-        text = font_small.render(line, True, BLACK)
-        screen.blit(text, (400 - text.get_width()//2, y))
-        y += 40
-    
-    if effect > 10:
-        interpretation = "Strong working memory effect!"
-        color = RED
-    elif effect > 5:
-        interpretation = "Moderate effect"
-        color = BLUE
-    else:
-        interpretation = "Minimal effect"
-        color = GRAY
-    
-    interp = font_small.render(interpretation, True, color)
-    screen.blit(interp, (400 - interp.get_width()//2, y + 30))
+    summary = font_small.render(f"Average recall: {avg_recall:.1f}%", True, BLACK)
+    screen.blit(summary, (400 - summary.get_width()//2, 280))
     
     pygame.display.flip()
     time.sleep(3)
