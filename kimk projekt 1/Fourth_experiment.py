@@ -16,7 +16,17 @@ font_small = pygame.font.Font(None, 32)
 def generate_consonant_sequence(length=20):
     """Generate a random sequence of consonants (no vowels to avoid chunks)"""
     consonants = 'BCDFGHJKLMNPQRSTVWXYZ'  # Exclude vowels A, E, I, O, U
-    return [random.choice(consonants) for _ in range(length)]
+    # Ensure no repeating letters by sampling without replacement
+    if length > len(consonants):
+        # If we need more letters than available, allow some repetition but minimize it
+        sequence = list(consonants)
+        remaining = length - len(consonants)
+        sequence.extend(random.choices(consonants, k=remaining))
+        random.shuffle(sequence)
+        return sequence
+    else:
+        # Sample without replacement for sequences up to 21 letters
+        return random.sample(consonants, length)
 
 # Colors
 WHITE = (255, 255, 255)

@@ -307,47 +307,50 @@ def show_trial_results(screen, participant_name, analysis, trial_num, sequence_l
         
         pygame.display.flip()
 
-def calculate_working_memory_capacity(all_trials):
-    """Calculate working memory capacity based on all trials"""
+def calculate_working_memory_performance(all_trials):
+    """Calculate working memory performance across all 7-letter trials"""
     
-    # Find longest sequence with perfect recall
-    max_perfect_length = 0
-    for trial in all_trials:
-        if trial['analysis']['perfect_match']:
-            max_perfect_length = max(max_perfect_length, trial['sequence_length'])
+    total_trials = len(all_trials)
+    perfect_recalls = sum(1 for trial in all_trials if trial['analysis']['accuracy_rate'] == 1.0)
     
-    # Calculate average accuracy by sequence length
-    length_performance = {}
-    for trial in all_trials:
-        length = trial['sequence_length']
-        if length not in length_performance:
-            length_performance[length] = []
-        length_performance[length].append(trial['analysis']['accuracy_rate'])
+    # Calculate average performance metrics
+    avg_accuracy = sum(trial['analysis']['accuracy_rate'] for trial in all_trials) / total_trials
+    avg_correct_from_start = sum(trial['analysis']['correct_from_start'] for trial in all_trials) / total_trials
+    avg_correct_positions = sum(trial['analysis']['correct_positions'] for trial in all_trials) / total_trials
     
-    # Average performance per length
-    avg_performance = {}
-    for length, accuracies in length_performance.items():
-        avg_performance[length] = sum(accuracies) / len(accuracies)
+    # Calculate distribution of performance
+    performance_distribution = {
+        '7_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 7),
+        '6_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 6),
+        '5_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 5),
+        '4_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 4),
+        '3_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 3),
+        '2_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 2),
+        '1_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 1),
+        '0_correct': sum(1 for trial in all_trials if trial['analysis']['correct_positions'] == 0)
+    }
     
-    # Estimate capacity (first length where performance drops below 50%)
-    estimated_capacity = max_perfect_length
-    for length in sorted(avg_performance.keys()):
-        if avg_performance[length] >= 0.5:
-            estimated_capacity = length
-        else:
-            break
+    # Find best and worst performance
+    best_trial = max(all_trials, key=lambda t: t['analysis']['correct_positions'])
+    worst_trial = min(all_trials, key=lambda t: t['analysis']['correct_positions'])
     
     results = {
-        'max_perfect_length': max_perfect_length,
-        'estimated_capacity': estimated_capacity,
-        'performance_by_length': avg_performance,
-        'total_trials': len(all_trials)
+        'total_trials': total_trials,
+        'perfect_recalls': perfect_recalls,
+        'avg_accuracy': avg_accuracy,
+        'avg_correct_from_start': avg_correct_from_start,
+        'avg_correct_positions': avg_correct_positions,
+        'performance_distribution': performance_distribution,
+        'best_performance': best_trial['analysis']['correct_positions'],
+        'worst_performance': worst_trial['analysis']['correct_positions'],
+        'best_trial_number': best_trial['trial_number'],
+        'worst_trial_number': worst_trial['trial_number']
     }
     
     return results
 
-def show_final_results(screen, participant_name, capacity_analysis, all_trials):
-    """Show final working memory capacity results"""
+def show_final_results(screen, participant_name, performance_analysis, all_trials):
+    """Show final working memory performance results"""
     result_active = True
     
     while result_active:
@@ -360,77 +363,80 @@ def show_final_results(screen, participant_name, capacity_analysis, all_trials):
         
         screen.fill(WHITE)
         
-        title = font_medium.render(f"Working Memory Capacity - {participant_name}", True, BLACK)
+        title = font_medium.render(f"Working Memory Performance - {participant_name}", True, BLACK)
         title_rect = title.get_rect(center=(400, 50))
         screen.blit(title, title_rect)
         
-        # Main capacity results
+        # Main performance results
         y_pos = 120
-        capacity_text = font_medium.render(f"Estimated Capacity: {capacity_analysis['estimated_capacity']} items", True, GREEN)
-        capacity_rect = capacity_text.get_rect(center=(400, y_pos))
-        screen.blit(capacity_text, capacity_rect)
+        results_text = [
+            f"Total trials completed: {performance_analysis['total_trials']}",
+            f"Perfect recalls (7/7): {performance_analysis['perfect_recalls']} trials",
+            f"Average letters correct: {performance_analysis['avg_correct_positions']:.1f}/7",
+            f"Average accuracy: {performance_analysis['avg_accuracy']*100:.1f}%",
+            f"Average sequential span: {performance_analysis['avg_correct_from_start']:.1f} letters"
+        ]
         
-        y_pos += 50
-        perfect_text = font_small.render(f"Longest perfect recall: {capacity_analysis['max_perfect_length']} items", True, BLACK)
-        screen.blit(perfect_text, (50, y_pos))
+        for text in results_text:
+            text_surface = font_small.render(text, True, BLACK)
+            screen.blit(text_surface, (50, y_pos))
+            y_pos += 25
         
-        # Performance by length table
-        y_pos += 50
-        table_header = font_small.render("Performance by Sequence Length:", True, BLACK)
-        screen.blit(table_header, (50, y_pos))
-        
+        # Performance distribution
         y_pos += 30
-        header_text = font_small.render("Length    Accuracy    Status", True, BLACK)
-        screen.blit(header_text, (50, y_pos))
+        distribution_title = font_small.render("Performance Distribution:", True, BLACK)
+        screen.blit(distribution_title, (50, y_pos))
         
-        y_pos += 20
-        pygame.draw.line(screen, BLACK, (50, y_pos), (350, y_pos), 2)
-        y_pos += 10
+        y_pos += 25
+        dist = performance_analysis['performance_distribution']
+        distribution_items = [
+            f"7 correct: {dist['7_correct']} trials",
+            f"6 correct: {dist['6_correct']} trials", 
+            f"5 correct: {dist['5_correct']} trials",
+            f"4 correct: {dist['4_correct']} trials",
+            f"3 or fewer: {dist['3_correct'] + dist['2_correct'] + dist['1_correct'] + dist['0_correct']} trials"
+        ]
         
-        for length in sorted(capacity_analysis['performance_by_length'].keys()):
-            accuracy = capacity_analysis['performance_by_length'][length]
-            
-            if accuracy == 1.0:
-                status = "Perfect"
-                color = GREEN
-            elif accuracy >= 0.5:
-                status = "Good"
-                color = BLUE
-            else:
-                status = "Poor"
-                color = RED
-            
-            length_text = font_small.render(f"{length:>4}", True, BLACK)
-            accuracy_text = font_small.render(f"{accuracy*100:>8.1f}%", True, BLACK)
-            status_text = font_small.render(status, True, color)
-            
-            screen.blit(length_text, (50, y_pos))
-            screen.blit(accuracy_text, (120, y_pos))
-            screen.blit(status_text, (220, y_pos))
+        for item in distribution_items:
+            item_surface = font_small.render(item, True, BLACK)
+            screen.blit(item_surface, (70, y_pos))
             y_pos += 20
         
-        # Interpretation
+        # Best and worst performance
         y_pos += 30
+        best_text = font_small.render(f"Best performance: {performance_analysis['best_performance']}/7 (Trial {performance_analysis['best_trial_number']})", True, GREEN)
+        screen.blit(best_text, (50, y_pos))
+        
+        y_pos += 25
+        worst_text = font_small.render(f"Worst performance: {performance_analysis['worst_performance']}/7 (Trial {performance_analysis['worst_trial_number']})", True, RED)
+        screen.blit(worst_text, (50, y_pos))
+        
+        # Interpretation
+        y_pos += 50
         interpretation = font_small.render("Interpretation:", True, BLACK)
         screen.blit(interpretation, (50, y_pos))
         
         y_pos += 25
-        if capacity_analysis['estimated_capacity'] >= 7:
-            interp_text = "✓ Above average working memory capacity"
+        avg_correct = performance_analysis['avg_correct_positions']
+        if avg_correct >= 6:
+            interp_text = "✓ Excellent working memory performance"
             interp_color = GREEN
-        elif capacity_analysis['estimated_capacity'] >= 5:
-            interp_text = "~ Average working memory capacity"
+        elif avg_correct >= 5:
+            interp_text = "✓ Good working memory performance"
+            interp_color = GREEN
+        elif avg_correct >= 4:
+            interp_text = "~ Average working memory performance"
             interp_color = BLUE
         else:
-            interp_text = "⚠ Below average working memory capacity"
+            interp_text = "⚠ Below average working memory performance"
             interp_color = RED
         
         interp_surface = font_small.render(interp_text, True, interp_color)
         screen.blit(interp_surface, (50, y_pos))
         
         y_pos += 25
-        norm_text = font_small.render("Normal range: 5-9 items (Miller's 7±2)", True, GRAY)
-        screen.blit(norm_text, (50, y_pos))
+        span_text = font_small.render(f"Sequential span: {performance_analysis['avg_correct_from_start']:.1f} (normal range: 5-9)", True, GRAY)
+        screen.blit(span_text, (50, y_pos))
         
         instruction = font_small.render("Press any key to continue", True, BLUE)
         instruction_rect = instruction.get_rect(center=(400, 570))
@@ -467,16 +473,16 @@ def main():
         instructions = [
             "This experiment measures your working memory capacity:",
             "",
-            "• You'll see sequences of consonants (no vowels)",
+            "• You'll see sequences of 7 consonants (no vowels)",
             "• Each letter shows for 1 second",
             "• After each sequence, type letters back in EXACT order",
-            "• Sequences start short and get progressively longer",
-            "• We'll find the longest sequence you can remember perfectly",
+            "• You'll do multiple trials with 7-letter sequences",
+            "• We'll measure how many letters you can remember correctly",
             "",
             "Tips:",
             "• Focus and try to rehearse the letters mentally",
-            "• Don't worry if you make mistakes on longer sequences",
-            "• Most people can remember 5-9 items (Miller's 7±2)",
+            "• Type back as many as you can remember in order",
+            "• It's normal to not remember all 7 - do your best!",
             "",
             "Press any key to start"
         ]
@@ -503,15 +509,16 @@ def main():
                 elif event.type == pygame.KEYDOWN:
                     waiting = False
         
-        # Run trials with increasing sequence length
+        # Run multiple trials with same length (7 letters)
         all_trials = []
-        sequence_lengths = [3, 4, 5, 6, 7, 8, 9]  # Start easy, get harder
+        sequence_length = 7  # Fixed length for all trials
+        trials_per_participant = 20  # 20 trials of 7-letter sequences
         trial_num = 1
         
-        for length in sequence_lengths:
+        for trial in range(trials_per_participant):
             # Show trial introduction
             screen.fill(WHITE)
-            trial_intro = font_medium.render(f"Trial {trial_num}: {length} Letters", True, BLACK)
+            trial_intro = font_medium.render(f"Trial {trial_num}/20: {sequence_length} Letters", True, BLACK)
             trial_rect = trial_intro.get_rect(center=(400, 250))
             screen.blit(trial_intro, trial_rect)
             
@@ -532,8 +539,8 @@ def main():
                         waiting = False
             
             # Generate and show sequence
-            letters = generate_consonant_sequence(length)
-            show_sequence(screen, letters, trial_num, length)
+            letters = generate_consonant_sequence(sequence_length)
+            show_sequence(screen, letters, trial_num, sequence_length)
             
             # Brief pause before recall
             screen.fill(WHITE)
@@ -544,18 +551,18 @@ def main():
             time.sleep(1)
             
             # Get recall
-            recalled_letters = get_serial_recall_input(screen, participant_name, length, trial_num)
+            recalled_letters = get_serial_recall_input(screen, participant_name, sequence_length, trial_num)
             
             # Analyze trial
             analysis = analyze_serial_recall(recalled_letters, letters)
             
             # Show trial results
-            show_trial_results(screen, participant_name, analysis, trial_num, length)
+            show_trial_results(screen, participant_name, analysis, trial_num, sequence_length)
             
             # Store trial data
             trial_data = {
                 'trial_number': trial_num,
-                'sequence_length': length,
+                'sequence_length': sequence_length,
                 'original_letters': letters,
                 'recalled_letters': recalled_letters,
                 'analysis': analysis
@@ -563,14 +570,9 @@ def main():
             all_trials.append(trial_data)
             
             trial_num += 1
-            
-            # Stop if performance gets very poor (optional early termination)
-            if length >= 6 and analysis['correct_from_start'] == 0:
-                print(f"Early termination at length {length} due to poor performance")
-                break
         
-        # Calculate overall working memory capacity
-        capacity_analysis = calculate_working_memory_capacity(all_trials)
+        # Calculate overall working memory performance
+        capacity_analysis = calculate_working_memory_performance(all_trials)
         
         # Show final results
         show_final_results(screen, participant_name, capacity_analysis, all_trials)
