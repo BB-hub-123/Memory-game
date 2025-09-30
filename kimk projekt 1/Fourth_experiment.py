@@ -76,8 +76,8 @@ def show_sequence(screen, letters, trial_num):
                 exit()
 
 def show_delay_period(screen, trial_num):
-    """Show 60-second delay with countdown"""
-    delay_time = 60
+    """Show 20-second delay with countdown"""
+    delay_time = 20
     
     for remaining in range(delay_time, 0, -1):
         for event in pygame.event.get():
@@ -174,7 +174,7 @@ def save_data(participant_name, trials):
     data = {
         'participant': participant_name,
         'timestamp': datetime.now().isoformat(),
-        'delay_seconds': 60,
+        'delay_seconds': 20,
         'trials': trials,
         'summary': {
             'average_accuracy': sum(t['accuracy'] for t in trials) / len(trials),
@@ -200,11 +200,11 @@ def main():
     instructions = [
         "Experiment 4: Delayed Memory",
         "",
-        "20 trials with 60-second delay",
+        "20 trials with 20-second delay",
         "",
         "Each trial:",
         "1. See 15 letters (1 sec each)",
-        "2. Wait 60 seconds (delay period)",
+        "2. Wait 20 seconds (delay period)",
         "3. Recall letters in order",
         "",
         "Press any key to start"
@@ -291,7 +291,7 @@ def main():
     summary = font_small.render(f"Average accuracy: {avg_acc:.1f}%", True, BLACK)
     screen.blit(summary, (400 - summary.get_width()//2, 280))
     
-    note = font_small.render("(with 60-second delay)", True, BLUE)
+    note = font_small.render("(with 20-second delay)", True, BLUE)
     screen.blit(note, (400 - note.get_width()//2, 320))
     
     pygame.display.flip()

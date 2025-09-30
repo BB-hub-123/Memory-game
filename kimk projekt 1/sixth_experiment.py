@@ -20,6 +20,17 @@ GREEN = (100, 255, 100)
 RED = (255, 100, 100)
 GRAY = (150, 150, 150)
 
+# Word list for chunking
+FOUR_LETTER_WORDS = [
+    'HAND', 'DOOR', 'BOOK', 'TREE', 'FACE', 'BLUE', 'COLD', 'DARK',
+    'FAST', 'GOOD', 'HARD', 'HIGH', 'LAST', 'LONG', 'MAKE', 'NICE',
+    'OPEN', 'PLAY', 'ROAD', 'SAFE', 'SOFT', 'TALK', 'WARM', 'WILD',
+    'WORK', 'YEAR', 'GAME', 'HOME', 'JUMP', 'KEEP', 'LAND', 'LOVE',
+    'MOVE', 'NAME', 'PART', 'SIDE', 'TAKE', 'TIME', 'TURN', 'WALK',
+    'BIRD', 'CAKE', 'DESK', 'FARM', 'GATE', 'HILL', 'KING', 'LAMP',
+    'MAIL', 'PARK', 'RAIN', 'SAND', 'TENT', 'WAVE', 'WIND', 'GIFT'
+]
+
 def get_text_input(screen, prompt):
     """Simple text input function"""
     text = ""
@@ -51,49 +62,30 @@ def get_text_input(screen, prompt):
     
     return text.strip()
 
-def generate_sequences():
-    """Generate 10 chunkable and 10 random sequences with unique letters"""
-    four_letter_words = [
-        'HAND', 'DOOR', 'BOOK', 'TREE', 'FACE', 'BLUE', 'COLD', 'DARK',
-        'FAST', 'GOOD', 'HARD', 'HIGH', 'LAST', 'LONG', 'MAKE', 'NICE',
-        'OPEN', 'PLAY', 'ROAD', 'SAFE', 'SOFT', 'TALK', 'WARM', 'WILD'
-    ]
+def generate_chunkable_sequence():
+    """Generate sequence with a 4-letter word + 3 random unique consonants"""
+    word = random.choice(FOUR_LETTER_WORDS)
+    word_letters = list(word)
     
-    random_consonants = 'BCDFGHJKLMNPQRSTVWXYZ'
-    sequences = []
+    # Get consonants not in the word
+    consonants = 'BCDFGHJKLMNPQRSTVWXYZ'
+    available = [c for c in consonants if c not in word_letters]
+    random_letters = random.sample(available, 3)
     
-    # 10 chunkable sequences (word + 3 random letters, all unique)
-    for _ in range(10):
-        word = random.choice(four_letter_words)
-        word_letters = list(word)
-        
-        # Get 3 random letters that don't appear in the word
-        available_consonants = [c for c in random_consonants if c not in word_letters]
-        random_letters = random.sample(available_consonants, 3)
-        
-        position = random.choice(['start', 'end'])
-        if position == 'start':
-            sequence = word_letters + random_letters
-        else:
-            sequence = random_letters + word_letters
-        
-        sequences.append({
-            'sequence': sequence,
-            'type': 'chunkable',
-            'word': word
-        })
+    # Randomly place word at start or end
+    if random.choice([True, False]):
+        sequence = word_letters + random_letters  # Word first
+        word_position = 'start'
+    else:
+        sequence = random_letters + word_letters  # Word last
+        word_position = 'end'
     
-    # 10 random sequences (7 unique consonants)
-    for _ in range(10):
-        sequence = random.sample(random_consonants, 7)
-        sequences.append({
-            'sequence': sequence,
-            'type': 'random',
-            'word': None
-        })
-    
-    random.shuffle(sequences)
-    return sequences
+    return {
+        'sequence': sequence,
+        'word': word,
+        'word_position': word_position,
+        'type': 'chunkable'
+    }
 
 def show_letters(screen, letters, trial_num):
     """Show 7 letters one at a time"""
@@ -147,12 +139,12 @@ def get_recall(screen, trial_num):
         title = font_medium.render(f"Trial {trial_num}/20 - Recall", True, BLACK)
         screen.blit(title, (500 - title.get_width()//2, 80))
         
-        instruction = font_small.render("Type letters and press ENTER/SPACE", True, GRAY)
+        instruction = font_small.render("Type letters in order and press ENTER/SPACE", True, GRAY)
         screen.blit(instruction, (500 - instruction.get_width()//2, 130))
         
         # Current input
         input_surface = font_large.render(current + "|", True, BLACK)
-        screen.blit(input_surface, (500 - input_surface.get_width()//2, 200))
+        screen.blit(input_surface, (500 - input_surface.get_width()//2, 230))
         
         # Show recalled letters
         x_start = 200
@@ -169,34 +161,44 @@ def get_recall(screen, trial_num):
     
     return recalled
 
-def analyze_trial(recalled, original_data):
-    """Analyze trial results"""
+def analyze_chunking(recalled, original_data):
+    """Analyze if the word chunk was recalled"""
     original = original_data['sequence']
+    word = original_data['word']
+    
+    # Check position accuracy
     correct = sum(1 for i in range(7) if i < len(recalled) and recalled[i] == original[i])
+    
+    # Check if word was recalled as a unit
+    word_intact = False
+    if original_data['word_position'] == 'start':
+        # Word at positions 0-3
+        word_intact = all(i < len(recalled) and recalled[i] == word[i] for i in range(4))
+    else:  # end
+        # Word at positions 3-6
+        word_intact = all(i < len(recalled) and recalled[i+3] == word[i] for i in range(4))
     
     return {
         'original': original,
         'recalled': recalled,
         'correct': correct,
         'accuracy': correct / 7,
-        'type': original_data['type'],
-        'word': original_data['word']
+        'word': word,
+        'word_intact': word_intact,
+        'word_position': original_data['word_position']
     }
 
 def save_data(participant_name, trials):
     """Save data to JSON"""
     filename = f"exp6_{participant_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
-    chunkable = [t for t in trials if t['type'] == 'chunkable']
-    random_trials = [t for t in trials if t['type'] == 'random']
-    
     data = {
         'participant': participant_name,
         'timestamp': datetime.now().isoformat(),
         'trials': trials,
         'summary': {
-            'chunkable_accuracy': sum(t['accuracy'] for t in chunkable) / len(chunkable),
-            'random_accuracy': sum(t['accuracy'] for t in random_trials) / len(random_trials),
+            'average_accuracy': sum(t['accuracy'] for t in trials) / len(trials),
+            'words_intact_rate': sum(1 for t in trials if t['word_intact']) / len(trials),
             'total_trials': len(trials)
         }
     }
@@ -217,20 +219,25 @@ def main():
     # Instructions
     screen.fill(WHITE)
     instructions = [
-        "Experiment 6: Chunking",
+        "Experiment 6: Chunking Effect",
         "",
-        "You will see 7 letters, one at a time (1 sec each)",
-        "Then recall them in order",
-        "20 trials total",
+        "20 trials - ALL with 4-letter words",
+        "",
+        "Each sequence contains a real English word!",
+        "Examples: HAND, DOOR, TREE, BOOK...",
+        "",
+        "7 letters per trial (1 sec each)",
+        "Recall them in order",
         "",
         "Press any key to start"
     ]
     
-    y = 150
+    y = 110
     for line in instructions:
-        text = font_small.render(line, True, BLACK)
+        color = BLUE if "Press" in line else BLACK
+        text = font_small.render(line, True, color)
         screen.blit(text, (500 - text.get_width()//2, y))
-        y += 40
+        y += 35
     
     pygame.display.flip()
     
@@ -243,20 +250,23 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 waiting = False
     
-    # Generate sequences
-    sequences = generate_sequences()
     results = []
     
-    # Run 20 trials
-    for i, seq_data in enumerate(sequences):
-        trial_num = i + 1
+    # Run 20 trials (all chunkable)
+    for trial_num in range(1, 21):
+        # Generate NEW chunkable sequence each trial
+        seq_data = generate_chunkable_sequence()
         
         # Ready screen
         screen.fill(WHITE)
-        ready = font_medium.render(f"Trial {trial_num}/20", True, BLACK)
-        screen.blit(ready, (500 - ready.get_width()//2, 250))
+        ready_title = font_medium.render(f"Trial {trial_num}/20", True, BLACK)
+        screen.blit(ready_title, (500 - ready_title.get_width()//2, 240))
+        
+        hint = font_small.render("(This sequence contains a 4-letter word)", True, GRAY)
+        screen.blit(hint, (500 - hint.get_width()//2, 280))
+        
         instruction = font_small.render("Press any key when ready", True, BLUE)
-        screen.blit(instruction, (500 - instruction.get_width()//2, 320))
+        screen.blit(instruction, (500 - instruction.get_width()//2, 330))
         pygame.display.flip()
         
         waiting = True
@@ -275,43 +285,60 @@ def main():
         recalled = get_recall(screen, trial_num)
         
         # Analyze
-        analysis = analyze_trial(recalled, seq_data)
-        results.append(analysis)
+        analysis = analyze_chunking(recalled, seq_data)
         
-        # Brief feedback
+        # Store
+        results.append({
+            'trial': trial_num,
+            'original': analysis['original'],
+            'recalled': analysis['recalled'],
+            'correct': analysis['correct'],
+            'accuracy': analysis['accuracy'],
+            'word': analysis['word'],
+            'word_intact': analysis['word_intact'],
+            'word_position': analysis['word_position']
+        })
+        
+        # Brief feedback showing the word
         screen.fill(WHITE)
-        score_text = font_medium.render(f"Score: {analysis['correct']}/7", True, BLACK)
-        screen.blit(score_text, (500 - score_text.get_width()//2, 280))
+        score = font_medium.render(f"Score: {analysis['correct']}/7", True, BLACK)
+        screen.blit(score, (500 - score.get_width()//2, 240))
+        
+        word_text = font_small.render(f"The word was: {analysis['word']}", True, BLUE)
+        screen.blit(word_text, (500 - word_text.get_width()//2, 300))
+        
+        if analysis['word_intact']:
+            intact_text = font_small.render("✓ You recalled the word perfectly!", True, GREEN)
+        else:
+            intact_text = font_small.render("The word wasn't fully recalled", True, RED)
+        screen.blit(intact_text, (500 - intact_text.get_width()//2, 340))
+        
         pygame.display.flip()
-        time.sleep(1.5)
+        time.sleep(2.5)
     
     # Final summary
-    chunkable = [r for r in results if r['type'] == 'chunkable']
-    random_trials = [r for r in results if r['type'] == 'random']
+    avg_acc = sum(t['accuracy'] for t in results) / len(results) * 100
+    words_intact = sum(1 for t in results if t['word_intact'])
     
     screen.fill(WHITE)
     title = font_medium.render("Experiment Complete!", True, BLACK)
     screen.blit(title, (500 - title.get_width()//2, 150))
     
-    chunk_acc = sum(t['accuracy'] for t in chunkable) / len(chunkable) * 100
-    rand_acc = sum(t['accuracy'] for t in random_trials) / len(random_trials) * 100
-    
     summary = [
-        f"Chunkable: {chunk_acc:.1f}%",
-        f"Random: {rand_acc:.1f}%",
-        f"Difference: {chunk_acc - rand_acc:+.1f}%"
+        f"Average accuracy: {avg_acc:.1f}%",
+        f"Words recalled intact: {words_intact}/20"
     ]
     
-    y = 250
+    y = 240
     for line in summary:
         text = font_small.render(line, True, BLACK)
         screen.blit(text, (500 - text.get_width()//2, y))
-        y += 40
+        y += 35
     
     pygame.display.flip()
     time.sleep(3)
     
-    # Save data
+    # Save
     save_data(participant_name, results)
     
     pygame.quit()
